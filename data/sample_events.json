@@ -1,0 +1,26 @@
+[
+    {
+        "title": "AI & Data Analytics Hackathon",
+        "description": "Join us for a 24-hour hackathon focused on building GenAI applications. Great prizes to be won!",
+        "category": "Hackathon",
+        "date": "2026-09-12",
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "venue": "Main Auditorium, Central Campus",
+        "registration_link": "https://christ.edu/hackathon",
+        "contact": "techclub@christ.edu",
+        "tags": ["AI", "Data", "Coding", "Competition"]
+    },
+    {
+        "title": "Classical Dance Performance",
+        "description": "Annual cultural fest showcasing traditional dance forms.",
+        "category": "Cultural",
+        "date": "2026-09-15",
+        "start_time": "18:00",
+        "end_time": "20:00",
+        "venue": "Open Air Theatre",
+        "registration_link": "",
+        "contact": "cultural@christ.edu",
+        "tags": ["Dance", "Music", "Art"]
+    }
+]

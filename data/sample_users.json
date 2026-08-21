@@ -1,0 +1,20 @@
+[
+    {
+        "name": "Pranay Tak",
+        "email": "pranay@student.christ.edu",
+        "role": "student",
+        "interests": ["Data Analytics", "AI/ML", "Hackathons"]
+    },
+    {
+        "name": "Jane Doe",
+        "email": "jane@student.christ.edu",
+        "role": "student",
+        "interests": ["Dance", "Cultural", "Music"]
+    },
+    {
+        "name": "Tech Club",
+        "email": "techclub@christ.edu",
+        "role": "organizer",
+        "interests": []
+    }
+]
