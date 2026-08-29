@@ -7,8 +7,8 @@ from PIL import Image
 # Import local modules
 from src.database import init_db, load_sample_data, get_db_connection
 from src.ocr import extract_text_from_image
-from src.llm import extract_structured_event_data, generate_promotional_content, generate_image_prompt
-from src.image_gen import generate_image_comfyui
+from src.llm import extract_structured_event_data, generate_image_prompt
+from src.image_gen import generate_image_a1111
 from src.utils import overlay_event_text
 from src.search import process_natural_language_search
 from src.recommendations import get_recommendations
@@ -22,45 +22,119 @@ if 'db_initialized' not in st.session_state:
 if 'current_user_id' not in st.session_state:
     st.session_state.current_user_id = 1 # Default to Pranay (Student)
 
-st.set_page_config(page_title="AI Campus Events", layout="wide")
+st.set_page_config(page_title="Campus Events", layout="wide", initial_sidebar_state="expanded")
 
-# --- Sidebar Navigation ---
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Student Dashboard", "Discover Events", "My Recommendations", "Organizer Portal"])
+from src.ui_styles import inject_custom_css, get_category_class
+inject_custom_css()
 
-# Simulated User Switcher
-st.sidebar.markdown("---")
-st.sidebar.subheader("Dev Tools")
-role = st.sidebar.selectbox("Simulate User", ["Student (Pranay)", "Organizer (Tech Club)"])
-if "Student" in role:
-    st.session_state.current_user_id = 1
-else:
-    st.session_state.current_user_id = 3
-
-# --- Pages ---
-
-if page == "Student Dashboard":
-    st.title("Welcome to Campus Events 🎓")
-    st.write("Never miss an event on campus again.")
+# --- Top/Sidebar Navigation ---
+with st.sidebar:
+    st.title("🎓 Campus")
+    st.markdown("---")
+    page = st.radio("Navigation", ["Home", "Discover", "For You", "Organizer Portal"], label_visibility="collapsed")
     
+    st.markdown("---")
+    st.caption("Developer Panel")
+    role = st.selectbox("Role", ["Student", "Organizer"])
+    st.session_state.current_user_id = 1 if "Student" in role else 3
+
+# Map new nav names to logic
+if page == "Home":
+    # --- Hero Section ---
+    st.markdown("""
+        <div class="hero-container">
+            <div class="hero-title">Discover Your Campus</div>
+            <div class="hero-subtitle">The easiest way to find, join, and host events at CHRIST University.</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # --- Interactive Filter Bar ---
+    st.write("")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        quick_search = st.text_input("Search events...", placeholder="Try: 'dance events today' or 'AI workshops'", label_visibility="collapsed")
+    with col2:
+        filter_cat = st.selectbox("Category", ["All", "Tech", "Cultural", "Sports", "Workshop", "Hackathon"], label_visibility="collapsed")
+    with col3:
+        filter_time = st.selectbox("Time", ["Anytime", "Today", "This Week", "This Weekend"], label_visibility="collapsed")
+    
+    st.write("")
+    
+    # --- Fetch & Render Events ---
     conn = get_db_connection()
-    events = conn.execute("SELECT * FROM events ORDER BY date ASC LIMIT 3").fetchall()
+    events = conn.execute("SELECT MIN(id) as id, title, date, start_time, venue, description, category, generated_poster_path FROM events GROUP BY title, date ORDER BY date ASC LIMIT 9").fetchall()
     conn.close()
     
-    st.subheader("Upcoming Events")
-    cols = st.columns(3)
-    for idx, event in enumerate(events):
-        with cols[idx % 3]:
-            st.card_container = st.container(border=True)
-            if event['generated_poster_path'] and os.path.exists(event['generated_poster_path']):
-                st.image(event['generated_poster_path'], use_column_width=True)
-            st.subheader(event['title'])
-            st.write(f"📅 {event['date']} | ⏰ {event['start_time']}")
-            st.write(f"📍 {event['venue']}")
-            if st.button("Details", key=f"det_{event['id']}"):
-                st.info(event['description'])
+    st.markdown("### Upcoming Events")
+    
+    if not events:
+        st.markdown("""
+        <div class="empty-state">
+            <h1>🏜️</h1>
+            <h3>No events found</h3>
+            <p>Check back later or switch up your filters!</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        cols = st.columns(3)
+        for idx, event in enumerate(events):
+            with cols[idx % 3]:
+                # Streamlit container serves as the physical card (styled in CSS)
+                with st.container():
+                    # Poster Image
+                    if event['generated_poster_path'] and os.path.exists(event['generated_poster_path']):
+                        st.image(event['generated_poster_path'], use_container_width=True)
+                    else:
+                        # Fallback for old events lacking an image
+                        st.image("https://via.placeholder.com/800x400/1e293b/ffffff?text=Event", use_container_width=True)
+                    
+                    # Category Badge HTML
+                    cat_class = get_category_class(event['category'])
+                    st.markdown(f'<span class="badge {cat_class}">{event["category"]}</span>', unsafe_allow_html=True)
+                    
+                    # Details
+                    st.markdown(f"**{event['title']}**")
+                    st.caption(f"🗓️ {event['date']} • ⏰ {event['start_time']}")
+                    st.caption(f"📍 {event['venue']}")
+                    
+                    if st.button("Register / Details", key=f"det_{event['id']}", use_container_width=True):
+                        st.info(event['description'])
+                        
+                        # Generate and provide PDF
+                        from src.export_pdf import generate_event_pdf
+                        pdf_path = generate_event_pdf(dict(event), f"outputs/event_{event['id']}.pdf")
+                        with open(pdf_path, "rb") as f:
+                            st.download_button(
+                                label="📄 Download as PDF",
+                                data=f,
+                                file_name=f"Event_{event['title'].replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                    
+                    # Delete Feature (Phase 5)
+                    if st.session_state.current_user_id == 3: # Organizer role
+                        delete_key = f"del_{event['id']}"
+                        if st.button("🗑️ Delete Event", key=delete_key, use_container_width=True):
+                            st.session_state[f"confirm_delete_{event['id']}"] = True
+                            st.rerun()
+                            
+                        if st.session_state.get(f"confirm_delete_{event['id']}", False):
+                            st.warning(f"Delete '{event['title']}'? This can't be undone.")
+                            col_y, col_n = st.columns(2)
+                            if col_y.button("Yes, Delete", key=f"yes_{event['id']}", type="primary"):
+                                conn = get_db_connection()
+                                conn.execute("DELETE FROM events WHERE id = ?", (event['id'],))
+                                conn.commit()
+                                conn.close()
+                                st.toast("Event deleted successfully!", icon="🗑️")
+                                st.session_state[f"confirm_delete_{event['id']}"] = False
+                                st.rerun()
+                            if col_n.button("Cancel", key=f"no_{event['id']}"):
+                                st.session_state[f"confirm_delete_{event['id']}"] = False
+                                st.rerun()
 
-elif page == "Discover Events":
+elif page == "Discover":
     st.title("Discover Events 🔍")
     
     search_query = st.text_input("Ask AI: e.g., 'Show me AI hackathons this weekend'")
@@ -78,7 +152,7 @@ elif page == "Discover Events":
         else:
             st.warning("No events found matching those criteria.")
 
-elif page == "My Recommendations":
+elif page == "For You":
     st.title("Recommended for You 🎯")
     
     recs = get_recommendations(st.session_state.current_user_id)
@@ -96,56 +170,105 @@ elif page == "Organizer Portal":
     st.title("AI Event Creator 🚀")
     st.write("Upload an old poster or enter details to let AI generate your promotional content and new poster.")
     
-    uploaded_file = st.file_uploader("Upload Event Poster (Optional for OCR)", type=['png', 'jpg', 'jpeg'])
+    from src.llm import generate_social_captions
     
-    if st.button("Start AI Workflow"):
-        if uploaded_file is not None:
-            # 1. OCR
-            st.info("1. Running Local OCR...")
-            os.makedirs("outputs", exist_ok=True)
-            temp_path = f"outputs/temp_{uploaded_file.name}"
-            with open(temp_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+    if 'workflow_step' not in st.session_state:
+        st.session_state.workflow_step = 1
+        st.session_state.extracted_data = {}
+        st.session_state.temp_poster_path = None
+        st.session_state.captions = {}
+        
+    if st.session_state.workflow_step == 1:
+        st.subheader("Step 1: Upload Poster")
+        uploaded_file = st.file_uploader("Upload Event Poster (Optional for OCR)", type=['png', 'jpg', 'jpeg'])
+        
+        if st.button("Extract Details"):
+            if uploaded_file is not None:
+                os.makedirs("outputs", exist_ok=True)
+                temp_path = f"outputs/temp_{uploaded_file.name}"
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                st.session_state.temp_poster_path = temp_path
+                
+                with st.spinner("Extracting with OCR and LLM..."):
+                    raw_text = extract_text_from_image(temp_path)
+                    st.session_state.extracted_data = extract_structured_event_data(raw_text)
+                st.session_state.workflow_step = 2
+                st.rerun()
+            else:
+                st.warning("Please upload a poster.")
+                
+    elif st.session_state.workflow_step == 2:
+        st.subheader("Step 2: Review & Edit Details")
+        data = st.session_state.extracted_data
+        
+        # Fallback for missing time
+        initial_time = data.get('time', '')
+        if not initial_time or str(initial_time).lower() == 'none':
+            initial_time = ''
+            st.warning("Time was not clearly detected. Please enter it manually.")
             
-            raw_text = extract_text_from_image(temp_path)
-            st.write("Extracted Text:", raw_text)
+        with st.form("edit_event_form"):
+            new_title = st.text_input("Title", value=data.get('title', ''))
+            new_date = st.text_input("Date", value=data.get('date', ''))
+            new_time = st.text_input("Time", value=initial_time)
+            new_venue = st.text_input("Venue", value=data.get('venue', ''))
+            new_category = st.text_input("Category", value=data.get('category', ''))
+            new_description = st.text_area("Description", value=data.get('description', ''))
             
-            # 2. Local LLM Structuring
-            st.info("2. Structuring data with Local LLM (Ollama)...")
-            structured_data = extract_structured_event_data(raw_text)
-            st.json(structured_data)
+            if st.form_submit_button("Generate Captions & Poster"):
+                st.session_state.extracted_data = {
+                    'title': new_title,
+                    'date': new_date,
+                    'time': new_time,
+                    'venue': new_venue,
+                    'category': new_category,
+                    'description': new_description
+                }
+                st.session_state.workflow_step = 3
+                st.rerun()
+                
+    elif st.session_state.workflow_step == 3:
+        st.subheader("Step 3: Final Output")
+        
+        if not st.session_state.captions:
+            with st.spinner("Generating Captions & Poster..."):
+                from src.image_gen import generate_image_a1111
+                st.session_state.captions = generate_social_captions(st.session_state.extracted_data)
+                
+                image_prompt = generate_image_prompt(st.session_state.extracted_data)
+                base_img = generate_image_a1111(image_prompt)
+                
+                final_poster_path = overlay_event_text(base_img, st.session_state.extracted_data, f"outputs/final_event.png")
+                st.session_state.final_poster_path = final_poster_path
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(st.session_state.final_poster_path, caption="Final AI Generated Poster")
             
-            # 3. LLM Content Gen
-            st.info("3. Generating Promotional Content...")
-            promo_content = generate_promotional_content(structured_data)
-            st.write(promo_content)
+        with col2:
+            st.subheader("Social Captions")
             
-            # 4. Image Generation
-            st.info("4. Generating Image Prompt & Local Poster...")
-            image_prompt = generate_image_prompt(structured_data)
-            st.write(f"**Image Prompt:** {image_prompt}")
+            ig_caption = st.text_area("Instagram Caption", value=st.session_state.captions.get('instagram', ''), height=150)
+            st.code(ig_caption, language="text") # Easy copy button
             
-            base_image_path = generate_image_comfyui(image_prompt)
+            li_caption = st.text_area("LinkedIn Caption", value=st.session_state.captions.get('linkedin', ''), height=150)
+            st.code(li_caption, language="text") # Easy copy button
             
-            # 5. Overlay Text
-            final_poster_path = overlay_event_text(base_image_path, structured_data, f"outputs/final_{uploaded_file.name}")
-            
-            st.success("Workflow Complete!")
-            st.image(final_poster_path, caption="Final AI Generated Poster")
-            
-            # Save to DB (mock logic for saving)
-            conn = get_db_connection()
-            conn.execute("""
-                INSERT INTO events (title, description, category, date, venue, generated_poster_path)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (structured_data.get('title', 'AI Event'), 
-                  structured_data.get('description', ''), 
-                  structured_data.get('category', 'Other'), 
-                  structured_data.get('date', ''), 
-                  structured_data.get('venue', ''), 
-                  final_poster_path))
-            conn.commit()
-            conn.close()
-            st.success("Event Published to Database!")
-        else:
-            st.warning("Please upload a poster to test the full OCR -> LLM -> Image workflow.")
+            if st.button("Publish Event"):
+                conn = get_db_connection()
+                conn.execute("""
+                    INSERT INTO events (title, description, category, date, start_time, venue, generated_poster_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (st.session_state.extracted_data.get('title'), 
+                      st.session_state.extracted_data.get('description'), 
+                      st.session_state.extracted_data.get('category'), 
+                      st.session_state.extracted_data.get('date'), 
+                      st.session_state.extracted_data.get('time'), 
+                      st.session_state.extracted_data.get('venue'), 
+                      st.session_state.final_poster_path))
+                conn.commit()
+                conn.close()
+                st.success("Event Published to Database!")
+                st.session_state.workflow_step = 1 # Reset
+

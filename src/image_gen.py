@@ -5,32 +5,42 @@ import os
 import random
 from PIL import Image, ImageDraw
 
-COMFYUI_URL = "http://localhost:8188/prompt"
+A1111_URL = "http://127.0.0.1:7860/sdapi/v1/txt2img"
 
-def generate_image_comfyui(prompt, output_filename="generated_poster.png"):
+def generate_image_a1111(prompt, output_filename="generated_poster.png"):
     """
-    Sends a generation request to a local ComfyUI API.
-    Note: ComfyUI requires a specific JSON workflow format.
-    For simplicity in this academic MVP, we simulate the output if ComfyUI isn't running,
-    or provide the exact stub where the ComfyUI API call goes.
+    Sends a generation request to a local AUTOMATIC1111 API.
+    Designed to work on CPU with flags: --no-half --skip-torch-cuda-test
     """
-    # A standard ComfyUI workflow JSON goes here.
-    # We will use a mock/fallback generation if the API isn't reachable.
+    payload = {
+        "prompt": prompt,
+        "steps": 20,
+        "width": 800,
+        "height": 1000,
+        "sampler_name": "Euler a",
+        "override_settings": {
+            "sd_model_checkpoint": "v1-5-pruned-emaonly.safetensors"
+        }
+    }
     
     try:
-        # Check if ComfyUI is up
-        requests.get("http://localhost:8188", timeout=2)
-        # If reachable, you would post the workflow payload here.
-        # ...
-        logging.info("ComfyUI reachable. (Stub for actual generation)")
-        # Simulate saving the image
-        img = _generate_mock_image(prompt)
+        logging.info("Attempting to connect to AUTOMATIC1111 API...")
+        response = requests.post(A1111_URL, json=payload, timeout=5)
+        response.raise_for_status()
+        
+        # Save base64 image
+        import base64
+        import io
+        r = response.json()
+        img_data = base64.b64decode(r['images'][0])
+        img = Image.open(io.BytesIO(img_data))
+        
         os.makedirs("outputs/generated_posters", exist_ok=True)
         path = f"outputs/generated_posters/{output_filename}"
         img.save(path)
         return path
-    except requests.exceptions.RequestException:
-        logging.warning("ComfyUI not running. Falling back to local Python mock generation to demonstrate workflow.")
+    except requests.exceptions.RequestException as e:
+        logging.warning(f"AUTOMATIC1111 not running or failed ({e}). Falling back to local mock generator.")
         img = _generate_mock_image(prompt)
         os.makedirs("outputs/generated_posters", exist_ok=True)
         path = f"outputs/generated_posters/fallback_{output_filename}"
@@ -39,12 +49,19 @@ def generate_image_comfyui(prompt, output_filename="generated_poster.png"):
 
 def _generate_mock_image(prompt):
     """
-    Generates a placeholder image visually representing the 'local generation' concept
-    when GPU/ComfyUI is not available on a student's laptop.
+    Generates a clean placeholder image gradient.
     """
     width, height = 800, 1000
-    color = (random.randint(50, 200), random.randint(50, 200), random.randint(50, 200))
-    img = Image.new('RGB', (width, height), color=color)
+    color1 = (random.randint(50, 150), random.randint(50, 150), random.randint(100, 200))
+    color2 = (random.randint(20, 80), random.randint(20, 80), random.randint(50, 100))
+    
+    img = Image.new('RGB', (width, height), color=color1)
     d = ImageDraw.Draw(img)
-    d.text((50, height//2), f"AI GENERATED BACKGROUND\nPrompt:\n{prompt[:100]}...", fill=(255, 255, 255))
+    # Simple top-to-bottom gradient
+    for y in range(height):
+        r = int(color1[0] + (color2[0] - color1[0]) * (y / height))
+        g = int(color1[1] + (color2[1] - color1[1]) * (y / height))
+        b = int(color1[2] + (color2[2] - color1[2]) * (y / height))
+        d.line([(0, y), (width, y)], fill=(r, g, b))
+        
     return img

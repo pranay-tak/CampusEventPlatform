@@ -45,23 +45,29 @@ def extract_structured_event_data(raw_text, model=DEFAULT_MODEL):
         logging.error(f"Failed to parse LLM JSON: {e}")
         return {"error": "Failed to parse JSON", "raw": response}
 
-def generate_promotional_content(event_details, model=DEFAULT_MODEL):
-    """Generates Instagram caption, Email, and WhatsApp text."""
+def generate_social_captions(event_details, model=DEFAULT_MODEL):
+    """Generates Instagram and LinkedIn captions."""
     prompt = f"""
-    Based on the following event details, generate promotional content:
+    Event Details:
     Title: {event_details.get('title')}
     Description: {event_details.get('description')}
-    Date & Time: {event_details.get('date')} {event_details.get('time')}
+    Date/Time: {event_details.get('date')} {event_details.get('time')}
     Venue: {event_details.get('venue')}
     
-    Please provide:
-    1. A short Instagram caption with emojis.
-    2. A formal Email announcement.
-    3. A brief WhatsApp notification text.
-    4. 5 relevant hashtags.
+    Output exactly two captions separated by "---":
+    
+    1) Instagram: hook line, key details, 3-5 hashtags, casual/energetic, under 150 words.
+    ---
+    2) LinkedIn: formal tone, value/opportunity framed, no excessive hashtags, under 120 words.
     """
     
-    return generate_text(prompt, model=model)
+    response = generate_text(prompt, model=model)
+    parts = response.split("---")
+    
+    ig = parts[0].strip() if len(parts) > 0 else response
+    li = parts[1].strip() if len(parts) > 1 else "Error generating LinkedIn caption."
+    
+    return {"instagram": ig, "linkedin": li}
 
 def generate_image_prompt(event_details, model=DEFAULT_MODEL):
     """Generates a prompt for the Image Generation Model."""
