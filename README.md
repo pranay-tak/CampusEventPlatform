@@ -19,7 +19,7 @@ A two-sided application where:
 *   **Organizer Features**: Automated event creation, AI content generation, AI poster design.
 *   **AI Features**: Local OCR, Local LLM structuring/generation, Local Image Generation.
 
-## 5. Local AI Models (Strictly No Cloud)
+## 5. Local AI Models 
 *   **Local LLM**: `llama3.2` running via **Ollama**. Selected for its excellent instruction-following capabilities while remaining feasible for consumer laptops.
 *   **Local Image Generation**: Local ComfyUI / Diffusers API. Keeps visual synthesis entirely local.
 *   **OCR**: `EasyOCR` or `Tesseract` for local text extraction from images.
@@ -92,5 +92,4 @@ See `demo/demo_script.md` for the exact steps to demonstrate the AI capabilities
 ## 21. Future Scope
 Cross-campus discovery, Calendar integration, Attendance prediction.
 
-## 22. Academic Context
-Developed for M.Sc. Data Analytics at CHRIST (Deemed to be University), Bengaluru Central Campus.
+
