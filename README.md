@@ -19,7 +19,7 @@ A two-sided application where:
 *   **Organizer Features**: Automated event creation, OCR extraction fallback to manual entry, AI content generation, "Use Original Poster" preservation, secure event deletion.
 *   **UI/UX**: Modern "Celsius Fest" aesthetic with glassmorphism, category color badges, and interactive hover states.
 
-## 5. Local AI Models (Strictly No Cloud)
+## 5. Local AI Models 
 *   **Local LLM**: `llama3.2` running via **Ollama**. Selected for its excellent instruction-following capabilities while remaining feasible for consumer laptops.
 *   **Local Image Generation**: **AUTOMATIC1111 (Stable Diffusion 1.5)** running locally. Keeps visual synthesis entirely local without relying on midjourney/DALL-E.
 *   **OCR**: `EasyOCR` for local text extraction from images.
