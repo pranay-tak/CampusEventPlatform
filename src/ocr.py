@@ -11,8 +11,8 @@ def extract_text_from_image(image_path):
     Extracts text from an uploaded poster using local EasyOCR.
     """
     if not EASYOCR_AVAILABLE:
-        logging.warning("EasyOCR not installed. Returning dummy text.")
-        return "Dummy Extracted Text: AI Hackathon Sept 12 Central Campus."
+        logging.warning("EasyOCR not installed. Returning empty text.")
+        return ""
         
     try:
         # Initialize reader (will use GPU if available, else CPU)

@@ -27,6 +27,9 @@ def generate_text(prompt, model=DEFAULT_MODEL, system_prompt=None):
 
 def extract_structured_event_data(raw_text, model=DEFAULT_MODEL):
     """Uses LLM to structure raw OCR text into JSON format."""
+    if not raw_text or raw_text.strip() == "":
+        return {}
+        
     system_prompt = "You are a helpful AI assistant. Your task is to extract event details from raw text and format it as a JSON object with keys: title, description, category, date, time, venue, registration, contact, tags (list of strings)."
     prompt = f"Extract the event details from this text and return ONLY valid JSON:\n\n{raw_text}"
     

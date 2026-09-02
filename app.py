@@ -62,7 +62,20 @@ if page == "Home":
     
     # --- Fetch & Render Events ---
     conn = get_db_connection()
-    events = conn.execute("SELECT MIN(id) as id, title, date, start_time, venue, description, category, generated_poster_path FROM events GROUP BY title, date ORDER BY date ASC LIMIT 9").fetchall()
+    
+    query = "SELECT MIN(id) as id, title, date, start_time, venue, description, category, generated_poster_path FROM events WHERE 1=1"
+    params = []
+    
+    if quick_search:
+        query += " AND (title LIKE ? OR description LIKE ?)"
+        params.extend([f"%{quick_search}%", f"%{quick_search}%"])
+    
+    if filter_cat != "All":
+        query += " AND category LIKE ?"
+        params.append(f"%{filter_cat}%")
+        
+    query += " GROUP BY title, date ORDER BY date ASC LIMIT 9"
+    events = conn.execute(query, params).fetchall()
     conn.close()
     
     st.markdown("### Upcoming Events")
@@ -99,6 +112,7 @@ if page == "Home":
                     
                     if st.button("Register / Details", key=f"det_{event['id']}", use_container_width=True):
                         st.info(event['description'])
+                        st.markdown(f"[🔗 Open Registration Form (Google Forms)](https://forms.gle/dummy) *(Demo Link)*")
                         
                         # Generate and provide PDF
                         from src.export_pdf import generate_event_pdf
@@ -155,16 +169,39 @@ elif page == "Discover":
 elif page == "For You":
     st.title("Recommended for You 🎯")
     
-    recs = get_recommendations(st.session_state.current_user_id)
-    if not recs:
-        st.info("No recommendations yet. Interact with more events!")
+    st.markdown("### Set Your Interests")
+    interests = st.multiselect(
+        "What kind of events do you love?", 
+        ["Tech", "AI", "Cultural", "Sports", "Dance", "Workshop", "Hackathon", "Data Analytics"],
+        default=["Tech"]
+    )
+    
+    st.markdown("### Your Custom Feed")
+    
+    conn = get_db_connection()
+    if interests:
+        placeholders = " OR ".join(["category LIKE ?" for _ in interests] + ["title LIKE ?" for _ in interests])
+        params = [f"%{i}%" for i in interests] * 2
+        query = f"SELECT MIN(id) as id, title, date, start_time, venue, description, category, generated_poster_path FROM events WHERE {placeholders} GROUP BY title, date"
+        recs = conn.execute(query, params).fetchall()
     else:
-        for rec in recs:
-            event = rec['event']
-            st.markdown(f"### {event['title']}")
-            st.caption(f"✨ {rec['reason']}")
-            st.write(f"📅 {event['date']} at {event['venue']}")
-            st.divider()
+        recs = []
+    conn.close()
+    
+    if not recs:
+        st.info("No recommendations yet. Pick some interests above!")
+    else:
+        cols = st.columns(3)
+        for idx, event in enumerate(recs):
+            with cols[idx % 3]:
+                with st.container():
+                    cat_class = get_category_class(event['category'])
+                    st.markdown(f'<span class="badge {cat_class}">{event["category"]}</span>', unsafe_allow_html=True)
+                    st.markdown(f"**{event['title']}**")
+                    st.caption(f"🗓️ {event['date']} • ⏰ {event['start_time']}")
+                    st.caption(f"✨ Because you like {', '.join(interests[:2])}")
+                    if st.button("Details", key=f"rec_{event['id']}", use_container_width=True):
+                        st.info(event['description'])
 
 elif page == "Organizer Portal":
     st.title("AI Event Creator 🚀")
@@ -182,21 +219,28 @@ elif page == "Organizer Portal":
         st.subheader("Step 1: Upload Poster")
         uploaded_file = st.file_uploader("Upload Event Poster (Optional for OCR)", type=['png', 'jpg', 'jpeg'])
         
-        if st.button("Extract Details"):
-            if uploaded_file is not None:
-                os.makedirs("outputs", exist_ok=True)
-                temp_path = f"outputs/temp_{uploaded_file.name}"
-                with open(temp_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.session_state.temp_poster_path = temp_path
-                
-                with st.spinner("Extracting with OCR and LLM..."):
-                    raw_text = extract_text_from_image(temp_path)
-                    st.session_state.extracted_data = extract_structured_event_data(raw_text)
+        col_up, col_skip = st.columns(2)
+        with col_up:
+            if st.button("Extract Details", use_container_width=True):
+                if uploaded_file is not None:
+                    os.makedirs("outputs", exist_ok=True)
+                    temp_path = f"outputs/temp_{uploaded_file.name}"
+                    with open(temp_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    st.session_state.temp_poster_path = temp_path
+                    
+                    with st.spinner("Extracting with OCR and LLM..."):
+                        raw_text = extract_text_from_image(temp_path)
+                        st.session_state.extracted_data = extract_structured_event_data(raw_text)
+                    st.session_state.workflow_step = 2
+                    st.rerun()
+                else:
+                    st.warning("Please upload a poster or click 'Create Manually'.")
+        with col_skip:
+            if st.button("Skip & Create Manually", use_container_width=True):
+                st.session_state.extracted_data = {}
                 st.session_state.workflow_step = 2
                 st.rerun()
-            else:
-                st.warning("Please upload a poster.")
                 
     elif st.session_state.workflow_step == 2:
         st.subheader("Step 2: Review & Edit Details")
@@ -216,7 +260,12 @@ elif page == "Organizer Portal":
             new_category = st.text_input("Category", value=data.get('category', ''))
             new_description = st.text_area("Description", value=data.get('description', ''))
             
-            if st.form_submit_button("Generate Captions & Poster"):
+            poster_option = "Generate new AI poster"
+            if st.session_state.temp_poster_path:
+                poster_option = st.radio("Poster Image", ["Use original uploaded poster", "Generate new AI poster"])
+            
+            if st.form_submit_button("Generate & Publish"):
+                st.session_state.poster_option = poster_option if st.session_state.temp_poster_path else "Generate new AI poster"
                 st.session_state.extracted_data = {
                     'title': new_title,
                     'date': new_date,
@@ -232,15 +281,23 @@ elif page == "Organizer Portal":
         st.subheader("Step 3: Final Output")
         
         if not st.session_state.captions:
-            with st.spinner("Generating Captions & Poster..."):
+            with st.spinner("Processing final assets..."):
                 from src.image_gen import generate_image_a1111
                 st.session_state.captions = generate_social_captions(st.session_state.extracted_data)
                 
-                image_prompt = generate_image_prompt(st.session_state.extracted_data)
-                base_img = generate_image_a1111(image_prompt)
+                import time
+                import shutil
+                timestamp = int(time.time())
                 
-                final_poster_path = overlay_event_text(base_img, st.session_state.extracted_data, f"outputs/final_event.png")
-                st.session_state.final_poster_path = final_poster_path
+                if st.session_state.get('poster_option') == "Use original uploaded poster" and st.session_state.temp_poster_path:
+                    final_poster_path = f"outputs/final_event_{timestamp}.png"
+                    shutil.copy(st.session_state.temp_poster_path, final_poster_path)
+                    st.session_state.final_poster_path = final_poster_path
+                else:
+                    image_prompt = generate_image_prompt(st.session_state.extracted_data)
+                    base_img = generate_image_a1111(image_prompt)
+                    final_poster_path = overlay_event_text(base_img, st.session_state.extracted_data, f"outputs/final_event_{timestamp}.png")
+                    st.session_state.final_poster_path = final_poster_path
         
         col1, col2 = st.columns(2)
         with col1:
