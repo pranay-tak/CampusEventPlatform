@@ -44,10 +44,12 @@ A two-sided application where:
 *   **OCR**: `EasyOCR` for local text extraction from images.
 
 ## 7. Architecture & Workflow
+Our application uses a Streamlit frontend interfacing with a SQLite database. Python modules handle interactions with local AI services (Ollama for text, AUTOMATIC1111 for image generation).
+
 *   [View System Architecture Diagram](docs/architecture_diagram.md)
 *   [View Organizer Workflow Diagram](docs/workflow_diagram.md)
 
-The application is a Streamlit frontend interfacing with a SQLite database. Python modules handle interactions with local AI services (Ollama, AUTOMATIC1111).
+*(Note: Replace with `![Architecture](docs/architecture.png)` once exported to PNG)*
 
 ## 8. AI Workflow
 Upload Poster -> OCR -> Local LLM (Structure Data) -> Local LLM (Generate Content & Image Prompt) -> Local Image Model (Generate Background) -> Pillow (Text Overlay) -> Final Poster.
@@ -68,7 +70,19 @@ Upload Poster -> OCR -> Local LLM (Structure Data) -> Local LLM (Generate Conten
 *   **Minimum**: CPU-only, 16GB RAM (Ollama will run slower, Image Generation relies on CPU flags `--no-half`).
 *   **Recommended**: NVIDIA GPU (6GB+ VRAM) for hardware-accelerated EasyOCR and fast local model inference.
 
-## 11. Installation
+## 11. Screenshots
+*(Add your application screenshots here by placing them in the `docs/screenshots/` folder)*
+*   ![Dashboard](docs/screenshots/dashboard_placeholder.png)
+*   ![Organizer Portal](docs/screenshots/portal_placeholder.png)
+
+## 12. Demo Video
+Watch the full AI workflow in action:
+*(Upload your video to the demo folder and link it here)*
+
+[🎥 Watch the Demo Video](demo/demo.mp4)
+
+## 13. Installation & Usage
+### Setup
 ```bash
 git clone <repo-url>
 cd CampusEventPlatform
@@ -77,12 +91,12 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-## 12. Configuration
+### Configuration
 1. Install [Ollama](https://ollama.com/) locally.
 2. Run `ollama run llama3.2` in terminal to download the model.
 3. Ensure AUTOMATIC1111 WebUI is running with the `--api` flag (and `--no-half --skip-torch-cuda-test` if on CPU).
 
-## 13. Running the Application
+### Running the Application
 ```bash
 python -m streamlit run app.py
 ```
