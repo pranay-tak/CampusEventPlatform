@@ -263,12 +263,21 @@ elif page == "Organizer Portal":
             poster_option = "Generate new AI poster"
             if st.session_state.temp_poster_path:
                 poster_option = st.radio("Poster Image", ["Use original uploaded poster", "Generate new AI poster"])
+                
+            st.markdown("**Promotional Content**")
+            gen_ig = st.checkbox("Generate Instagram Caption", value=True)
+            gen_li = st.checkbox("Generate LinkedIn Caption", value=True)
             
             if st.form_submit_button("Generate & Publish"):
-                st.session_state.poster_option = poster_option if st.session_state.temp_poster_path else "Generate new AI poster"
-                st.session_state.extracted_data = {
-                    'title': new_title,
-                    'date': new_date,
+                if not new_title.strip():
+                    st.error("⚠️ Please enter at least a Title for the event before proceeding!")
+                else:
+                    st.session_state.poster_option = poster_option if st.session_state.temp_poster_path else "Generate new AI poster"
+                    st.session_state.gen_ig = gen_ig
+                    st.session_state.gen_li = gen_li
+                    st.session_state.extracted_data = {
+                        'title': new_title,
+                        'date': new_date,
                     'time': new_time,
                     'venue': new_venue,
                     'category': new_category,
@@ -301,16 +310,21 @@ elif page == "Organizer Portal":
         
         col1, col2 = st.columns(2)
         with col1:
-            st.image(st.session_state.final_poster_path, caption="Final AI Generated Poster")
+            st.image(st.session_state.final_poster_path, caption="Final Event Poster")
             
         with col2:
             st.subheader("Social Captions")
             
-            ig_caption = st.text_area("Instagram Caption", value=st.session_state.captions.get('instagram', ''), height=150)
-            st.code(ig_caption, language="text") # Easy copy button
+            if st.session_state.get('gen_ig', True):
+                ig_caption = st.text_area("Instagram Caption", value=st.session_state.captions.get('instagram', ''), height=150)
+                st.code(ig_caption, language="text") # Easy copy button
+                
+            if st.session_state.get('gen_li', True):
+                li_caption = st.text_area("LinkedIn Caption", value=st.session_state.captions.get('linkedin', ''), height=150)
+                st.code(li_caption, language="text") # Easy copy button
             
-            li_caption = st.text_area("LinkedIn Caption", value=st.session_state.captions.get('linkedin', ''), height=150)
-            st.code(li_caption, language="text") # Easy copy button
+            if not st.session_state.get('gen_ig', True) and not st.session_state.get('gen_li', True):
+                st.info("You chose to skip generating social media captions.")
             
             if st.button("Publish Event"):
                 conn = get_db_connection()
