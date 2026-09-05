@@ -71,9 +71,16 @@ Upload Poster -> OCR -> Local LLM (Structure Data) -> Local LLM (Generate Conten
 *   **Recommended**: NVIDIA GPU (6GB+ VRAM) for hardware-accelerated EasyOCR and fast local model inference.
 
 ## 11. Screenshots
-*(Add your application screenshots here by placing them in the `docs/screenshots/` folder)*
-*   ![Dashboard](docs/screenshots/dashboard_placeholder.png)
-*   ![Organizer Portal](docs/screenshots/portal_placeholder.png)
+Here is a look at the modern Campus Event Platform interface:
+
+**Student Dashboard (Discover Events)**
+![Dashboard Banner](docs/screenshots/dashboard_top.png)
+
+**Event Cards & Recommendations**
+![Event Cards](docs/screenshots/dashboard_events.png)
+
+**AI Organizer Portal**
+![Organizer Portal](docs/screenshots/organizer_portal.png)
 
 ## 12. Demo Video
 Watch the full AI workflow in action:
